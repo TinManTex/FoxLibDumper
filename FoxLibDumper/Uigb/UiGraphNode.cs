@@ -18,13 +18,15 @@ namespace FoxLibDumper.Uigb
     {
         public uint TypeHash { get; }
         public uint NameHash { get; }
-        public UiNodeType Type { get; }
+        public string Type => type.ToString();
+
+        private UiNodeType type { get; }
 
         public UiGraphNode(uint typeHash, uint nameHash, UiNodeType type)
         {
             this.TypeHash = typeHash;
             this.NameHash = nameHash;
-            this.Type = type;
+            this.type = type;
         }
 
         public static UiGraphNode Read(BinaryReader reader, Func<int, uint> getStrCode32HashByIndex, out byte nodeSizeInBytes)
