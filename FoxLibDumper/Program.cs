@@ -11,6 +11,7 @@ using Newtonsoft.Json;
 using FoxLib;
 using FoxLibDumper.Uigb;
 using FoxLibDumper.Uilb;
+using FoxLibDumper.Uif;
 
 namespace FoxLibDumper
 {
@@ -50,6 +51,9 @@ namespace FoxLibDumper
                         break;
                     case ".uilb":
                         ReadUilbAndWriteHashes(filePath, ref failed);
+                        break;
+                    case ".uif":
+                        ReadUifAndWriteHashes(filePath, ref failed);
                         break;
                     default:
                         break;
@@ -375,6 +379,31 @@ namespace FoxLibDumper
                 pathFileNameCode64Hashes.Add(hash.ToString());
             }
             
+            Program.WriteHashes(filePath, strCode32Hashes, "StrCode32");
+            Program.WriteHashes(filePath, pathFileNameCode64Hashes, "PathFileNameCode64");
+        }
+
+        public static void ReadUifAndWriteHashes(string filePath, ref List<string> failed)
+        {
+            Console.WriteLine(filePath);
+
+            string fileName = Path.GetFileName(filePath);
+
+            var uif = UiModelLoader.ReadUiModel(filePath);
+            DumpToJson(filePath, uif);
+
+            var strCode32Hashes = new HashSet<string>();
+            foreach (var hash in uif.StrCode32Hashes)
+            {
+                strCode32Hashes.Add(hash.ToString());
+            }
+
+            var pathFileNameCode64Hashes = new HashSet<string>();
+            foreach (var hash in uif.PathFileNameCode64Hashes)
+            {
+                pathFileNameCode64Hashes.Add(hash.ToString());
+            }
+
             Program.WriteHashes(filePath, strCode32Hashes, "StrCode32");
             Program.WriteHashes(filePath, pathFileNameCode64Hashes, "PathFileNameCode64");
         }
