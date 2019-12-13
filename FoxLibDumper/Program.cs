@@ -10,6 +10,7 @@ using FoxLibLoaders;
 using Newtonsoft.Json;
 using FoxLib;
 using FoxLibDumper.Uigb;
+using FoxLibDumper.Uilb;
 
 namespace FoxLibDumper
 {
@@ -46,6 +47,9 @@ namespace FoxLibDumper
                         break;
                     case ".uigb":
                         ReadUigbAndWriteHashes(filePath, ref failed);
+                        break;
+                    case ".uilb":
+                        ReadUilbAndWriteHashes(filePath, ref failed);
                         break;
                     default:
                         break;
@@ -301,7 +305,6 @@ namespace FoxLibDumper
             Console.WriteLine(filePath);
 
             string fileName = Path.GetFileName(filePath);
-            string outPath;
 
             var uigb = UiGraphLoader.ReadUiGraph(filePath);
             DumpToJson(filePath, uigb);
@@ -347,6 +350,31 @@ namespace FoxLibDumper
 
             Program.WriteHashes(filePath, nodeTypeHashes, "nodeType");
             Program.WriteHashes(filePath, nodeNameHashes, "nodeName");
+            Program.WriteHashes(filePath, strCode32Hashes, "StrCode32");
+            Program.WriteHashes(filePath, pathFileNameCode64Hashes, "PathFileNameCode64");
+        }
+
+        public static void ReadUilbAndWriteHashes(string filePath, ref List<string> failed)
+        {
+            Console.WriteLine(filePath);
+
+            string fileName = Path.GetFileName(filePath);
+
+            var uilb = UiLayoutLoader.ReadUiLayout(filePath);
+            DumpToJson(filePath, uilb);
+
+            var strCode32Hashes = new HashSet<string>();
+            foreach (var hash in uilb.StrCode32Hashes)
+            {
+                strCode32Hashes.Add(hash.ToString());
+            }
+
+            var pathFileNameCode64Hashes = new HashSet<string>();
+            foreach (var hash in uilb.PathFileNameCode64Hashes)
+            {
+                pathFileNameCode64Hashes.Add(hash.ToString());
+            }
+            
             Program.WriteHashes(filePath, strCode32Hashes, "StrCode32");
             Program.WriteHashes(filePath, pathFileNameCode64Hashes, "PathFileNameCode64");
         }
