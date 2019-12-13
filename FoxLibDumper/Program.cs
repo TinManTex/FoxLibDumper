@@ -9,6 +9,9 @@ using Vector4 = FoxLib.Core.Vector4;
 using FoxLibLoaders;
 using Newtonsoft.Json;
 using FoxLib;
+using FoxLibDumper.Uigb;
+using FoxLibDumper.Uilb;
+using FoxLibDumper.Uif;
 
 namespace FoxLibDumper
 {
@@ -42,6 +45,15 @@ namespace FoxLibDumper
                         break;
                     case ".fv2":
                         ReadFv2AndWriteHashes(filePath, ref failed);
+                        break;
+                    case ".uigb":
+                        ReadUigbAndWriteHashes(filePath, ref failed);
+                        break;
+                    case ".uilb":
+                        ReadUilbAndWriteHashes(filePath, ref failed);
+                        break;
+                    case ".uif":
+                        ReadUifAndWriteHashes(filePath, ref failed);
                         break;
                     default:
                         break;
@@ -290,6 +302,110 @@ namespace FoxLibDumper
             Program.WriteHashes(filePath, nodeEventTypeHashes, "nodeEventType");
             Program.WriteHashes(filePath, parameterHashes, "parameter");
             Program.WriteHashes(filePath, snippetList, "snippet");
+        }
+
+        public static void ReadUigbAndWriteHashes(string filePath, ref List<string> failed)
+        {
+            Console.WriteLine(filePath);
+
+            string fileName = Path.GetFileName(filePath);
+
+            var uigb = UiGraphLoader.ReadUiGraph(filePath);
+            DumpToJson(filePath, uigb);
+
+            var strCode32Hashes = new HashSet<string>();
+            var nodeTypeHashes = new HashSet<string>();
+            var nodeNameHashes = new HashSet<string>();
+
+            foreach(var node in uigb.Nodes)
+            {
+                if (!nodeTypeHashes.Contains(node.TypeHash.ToString()))
+                {
+                    nodeTypeHashes.Add(node.TypeHash.ToString());
+                }
+
+                if (!nodeNameHashes.Contains(node.NameHash.ToString()))
+                {
+                    nodeNameHashes.Add(node.NameHash.ToString());
+                }
+            }
+
+            foreach(var hash in uigb.StrCode32Hashes)
+            {
+                var hashStr = hash.ToString();
+                if (nodeTypeHashes.Contains(hashStr.ToString()))
+                {
+                    continue;
+                }
+
+                if (nodeNameHashes.Contains(hashStr.ToString()))
+                {
+                    continue;
+                }
+
+                strCode32Hashes.Add(hashStr);
+            }
+
+            var pathFileNameCode64Hashes = new HashSet<string>();
+            foreach(var hash in uigb.PathFileNameCode64Hashes)
+            {
+                pathFileNameCode64Hashes.Add(hash.ToString());
+            }
+
+            Program.WriteHashes(filePath, nodeTypeHashes, "nodeType");
+            Program.WriteHashes(filePath, nodeNameHashes, "nodeName");
+            Program.WriteHashes(filePath, strCode32Hashes, "StrCode32");
+            Program.WriteHashes(filePath, pathFileNameCode64Hashes, "PathFileNameCode64");
+        }
+
+        public static void ReadUilbAndWriteHashes(string filePath, ref List<string> failed)
+        {
+            Console.WriteLine(filePath);
+
+            string fileName = Path.GetFileName(filePath);
+
+            var uilb = UiLayoutLoader.ReadUiLayout(filePath);
+            DumpToJson(filePath, uilb);
+
+            var strCode32Hashes = new HashSet<string>();
+            foreach (var hash in uilb.StrCode32Hashes)
+            {
+                strCode32Hashes.Add(hash.ToString());
+            }
+
+            var pathFileNameCode64Hashes = new HashSet<string>();
+            foreach (var hash in uilb.PathFileNameCode64Hashes)
+            {
+                pathFileNameCode64Hashes.Add(hash.ToString());
+            }
+            
+            Program.WriteHashes(filePath, strCode32Hashes, "StrCode32");
+            Program.WriteHashes(filePath, pathFileNameCode64Hashes, "PathFileNameCode64");
+        }
+
+        public static void ReadUifAndWriteHashes(string filePath, ref List<string> failed)
+        {
+            Console.WriteLine(filePath);
+
+            string fileName = Path.GetFileName(filePath);
+
+            var uif = UiModelLoader.ReadUiModel(filePath);
+            DumpToJson(filePath, uif);
+
+            var strCode32Hashes = new HashSet<string>();
+            foreach (var hash in uif.StrCode32Hashes)
+            {
+                strCode32Hashes.Add(hash.ToString());
+            }
+
+            var pathFileNameCode64Hashes = new HashSet<string>();
+            foreach (var hash in uif.PathFileNameCode64Hashes)
+            {
+                pathFileNameCode64Hashes.Add(hash.ToString());
+            }
+
+            Program.WriteHashes(filePath, strCode32Hashes, "StrCode32");
+            Program.WriteHashes(filePath, pathFileNameCode64Hashes, "PathFileNameCode64");
         }
 
         private static void DumpToJson(string filePath, object dumpObject)
