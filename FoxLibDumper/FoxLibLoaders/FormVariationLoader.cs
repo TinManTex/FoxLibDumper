@@ -1,13 +1,15 @@
 ﻿namespace FoxLibLoaders
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
+    using FormVariation = FoxLib.FormVariation.FormVariation;
 
     public static class FormVariationLoader
     {
-        public static FoxLib.FormVariation.FormVariation Read(string inputPath)
+        public static FormVariation Read(string inputPath)
         {
-            FoxLib.FormVariation.FormVariation formVariation = null;
+            FormVariation formVariation = null;
 
             using (var reader = new BinaryReader(new FileStream(inputPath, FileMode.Open)))
             {
@@ -17,7 +19,8 @@
                 try
                 {
                     formVariation = FoxLib.FormVariation.Read(readFunctions);
-                } catch
+                }
+                catch (Exception e)
                 {
                     //throw new Exception("Error: Unsupported .fv2 (it probably has to do with section 2)");
                     return null;
@@ -46,5 +49,81 @@
         {
             reader.BaseStream.Position = bytePos;
         }
-    }
+
+        public static void ReadHashes(string filePath, ref Dictionary<string, HashSet<string>> hashes, ref List<string> failed)
+        {
+            FormVariation formVariation = Read(filePath);
+            if (formVariation == null)
+            {
+                Console.WriteLine($"Could not read {filePath}");
+                failed.Add(filePath);
+                return;
+            }
+
+            //DumpToJson(filePath, formVariation);
+
+            foreach (var hash in formVariation.HiddenMeshGroups)
+            {
+                //hashes["HiddenMeshGroup"].Add(hash.ToString());//s32
+                hashes["MeshGroup"].Add(hash.ToString());//s32
+            }
+            foreach (var hash in formVariation.ShownMeshGroups)
+            {
+                //hashes["ShownMeshGroup"].Add(hash.ToString());//s32
+                hashes["MeshGroup"].Add(hash.ToString());//s32
+            }
+            foreach (var textureSwap in formVariation.TextureSwaps)
+            {
+                hashes["MaterialInstance"].Add(textureSwap.MaterialInstanceHash.ToString());//s32
+                hashes["TextureType"].Add(textureSwap.TextureTypeHash.ToString());//s32
+                hashes["TexturePath"].Add(textureSwap.TextureFileHash.ToString());//p64
+            }
+            foreach (var boneAttachment in formVariation.BoneAttachments)
+            {
+                hashes["ModelPath"].Add(boneAttachment.ModelFileHash.ToString());//p64
+                hashes["FrdvPath"].Add(boneAttachment.FrdvFileHash.ToString());//p64
+                hashes["SimPath"].Add(boneAttachment.SimFileHash.ToString());//p64
+            }
+            foreach (var cnpAttachment in formVariation.CNPAttachments)
+            {
+                hashes["ConnectionPoint"].Add(cnpAttachment.CNPHash.ToString());//s32
+                hashes["ModelPath"].Add(cnpAttachment.ModelFileHash.ToString());//p64
+                hashes["FrdvPath"].Add(cnpAttachment.FrdvFileHash.ToString());//p64
+                hashes["SimPath"].Add(cnpAttachment.SimFileHash.ToString());//p64
+            }
+
+            foreach (var variableEntry in formVariation.Variables)
+            {
+                foreach (var subEntry in variableEntry)
+                {
+                    foreach (var mesh in subEntry.Meshes)
+                    {
+                        hashes["MeshName"].Add(mesh.ToString());//s32
+                    }
+
+                    foreach (var textureSwap in subEntry.MaterialInstances)
+                    {
+                        hashes["MaterialInstance"].Add(textureSwap.MaterialInstanceHash.ToString());//s32
+                        hashes["TextureType"].Add(textureSwap.TextureTypeHash.ToString());//s32
+                        hashes["TexturePath"].Add(textureSwap.TextureFileHash.ToString());//p64
+                    }
+
+                    foreach (var boneAttachment in subEntry.BoneAttachments)
+                    {
+                        hashes["ModelPath"].Add(boneAttachment.ModelFileHash.ToString());
+                        hashes["FrdvPath"].Add(boneAttachment.FrdvFileHash.ToString());
+                        hashes["SimPath"].Add(boneAttachment.SimFileHash.ToString());
+                    }
+
+                    foreach (var cnp in subEntry.CNPAttachments)
+                    {
+                        hashes["ConnectionPoint"].Add(cnp.CNPHash.ToString());//s32
+                        hashes["ModelPath"].Add(cnp.ModelFileHash.ToString());//p64
+                        hashes["FrdvPath"].Add(cnp.FrdvFileHash.ToString());//p64
+                        hashes["SimPath"].Add(cnp.SimFileHash.ToString());//p64
+                    }
+                }
+            }//foreach variableEntry
+        }//ReadHashes
+    }//FormVariationLoader
 }

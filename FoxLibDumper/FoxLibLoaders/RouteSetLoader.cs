@@ -9,92 +9,6 @@ namespace FoxLibLoaders
 {
     public static class RouteSetLoader
     {
-        private static RouteNode CreateDummyRouteNode()
-        {
-            //var position = new Vector3(1667f, 360.0f, -282.0f);
-            var position = new Vector3(-1578.3302f, 354.714447f, -285.961426f);
-
-            var event0 = new RouteEvent((uint)Hashing.StrCode("RelaxedWalk"), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "1234");
-            var event1 = new RouteEvent(3297759236u, 0, 0, 0, 0, 0, 0, 728838112u, 0, 0, 0, "1234");
-            var event2 = new RouteEvent((uint)Hashing.StrCode("VehicleIdle"), 16777985u, 2379809247u, 4106517606u, (uint)Hashing.StrCode(""), (uint)Hashing.StrCode(""), (uint)Hashing.StrCode(""), 0, 0, 0, 0, "1234");
-
-            var events = new List<RouteEvent>() { event0, event1, event2 };
-            var node = new RouteNode(position, event0, events);
-
-            return node;
-        }
-
-        private static Route CreateDummyRoute()
-        {
-            var node0 = CreateDummyRouteNode();
-            //var node1 = CreateRouteNode();
-            //var node2 = CreateRouteNode();
-
-            var routeId = (uint)Hashing.StrCode("rt_quest_d_dummy");
-            var nodes = new List<RouteNode>() { node0 };
-            return new Route(routeId, nodes);
-        }
-
-
-        /// <summary>
-        /// Create a route node.
-        /// </summary>
-        /// <returns>The created route node.</returns>
-        private static RouteNode CreateRouteNode(float x, float y, float z, string snippet)
-        {
-            var position = new Vector3(x, y, z);
-
-            var event0 = new RouteEvent((uint)Hashing.StrCode("RelaxedWalk"), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "1234");
-
-            //var event0 = new RouteEvent((uint)Hashing.StrCode("CautionSquatFire"), 16777473, 1161101791, 1152746673, 1135115795, 1152909810, 0, 0, 0, 0, 0, snippet);
-            //var event1 = new RouteEvent((uint)Hashing.StrCode("CautionSquatFire"), 16777473, 1161101791, 1152746673, 1135115795, 1152909810, 0, 0, 0, 0, 0, snippet);
-            //var event1 = new RouteEvent(3297759236u, 0, 0, 0, 0, 0, 0, 728838112u, 0, 0, 0, "4160");
-            //var event2 = new RouteEvent((uint)Hashing.HashFileNameLegacy("VehicleIdle"), 16777985u, 2379809247u, 4106517606u, (uint)Hashing.HashFileNameLegacy(""), (uint)Hashing.HashFileNameLegacy(""), (uint)Hashing.HashFileNameLegacy(""), 0, 0, 0, 0, ",\"\"]");
-
-            var events = new List<RouteEvent>() { event0 };//,event1, event2 };
-            var node = new RouteNode(position, event0, events);
-
-            return node;
-        }
-
-        /// <summary>
-        /// Create a route.
-        /// </summary>
-        /// <returns>The created route.</returns>
-        private static Route CreateRoute()
-        {
-            var routeId = (uint)Hashing.StrCode("rt_quest_d_0000_test2");
-
-
-            var node0 = CreateRouteNode(-1612.843f, 355.072f, -292.099f, "1");
-            var node1 = CreateRouteNode(-1637.756f, 355.072f, -295.725f, "2");
-            var node2 = CreateRouteNode(-1641.882f, 355.072f, -277.100f, "3");
-            var node3 = CreateRouteNode(-1616.792f, 355.072f, -272.854f, "4");
-
-            //var node0 = CreateRouteNode(-1578.3302f, 354.714447f, -285.961426f);
-            //var node1 = CreateRouteNode(1667f, 360.0f, -282.0f);
-            //var node2 = CreateRouteNode();
-
-            var nodes = new List<RouteNode>() { node0, node1, node2, node3 };
-            return new Route(routeId, nodes);
-        }
-
-        /// <summary>
-        /// Create a routeset.
-        /// </summary>
-        /// <returns>The created routeset.</returns>
-        public static RouteSet CreateRouteSet()
-        {
-            
-            var route0 = CreateRoute(); //CreateDummyRoute();
-            //var route1 = CreateRoute();
-            //var route2 = CreateRoute();
-
-            var routes = new List<Route>() { route0 };
-            var routeset = new RouteSet(routes);
-            return routeset;
-        }
-
         /// <summary>
         /// Writes a RouteSet to a .frt file.
         /// </summary>
@@ -149,5 +63,59 @@ namespace FoxLibLoaders
         {
             return new List<uint>() { routeEvent.Param1, routeEvent.Param2, routeEvent.Param3, routeEvent.Param4, routeEvent.Param5, routeEvent.Param6, routeEvent.Param7, routeEvent.Param8, routeEvent.Param9, routeEvent.Param10 };
         }
+
+        public static void ReadHashes(string filePath, ref Dictionary<string, HashSet<string>> hashes, ref List<string> failed)
+        {
+            string fileName = Path.GetFileName(filePath);
+
+            var routeSet = RouteSetLoader.ReadRouteSet(filePath);
+            if (routeSet == null)
+            {
+                Console.WriteLine($"Could not read {filePath}");
+                failed.Add(filePath);
+                return;
+            }
+
+            //DumpToJson(filePath, routeSet);
+
+            //tex for parameter we just have a big ole bag of em with no context to try and see if any are hashes (like SendMessage 1st param).
+            //ideally we'll figure out what parameters are actually hashes for a node type, then just dump for <node type>/parameter<n>
+            var snippetList = new HashSet<string>();
+
+            foreach (var route in routeSet.Routes)
+            {
+
+                hashes["RouteName"].Add(route.Name.ToString());
+                foreach (var node in route.Nodes)
+                {
+                    var eventTypeHash = node.EdgeEvent.EventType;
+                    hashes["EdgeEventType"].Add(eventTypeHash.ToString());
+
+                    snippetList.Add(node.EdgeEvent.Snippet.ToString());
+
+                    var parametersEdge = RouteSetLoader.GetParams(node.EdgeEvent);
+                    foreach (var param in parametersEdge)
+                    {
+                        hashes["EdgeParameters"].Add(param.ToString());
+                    }
+
+                    foreach (var nodeEvent in node.Events)
+                    {
+                        eventTypeHash = nodeEvent.EventType;
+                        hashes["NodeEventType"].Add(eventTypeHash.ToString());
+
+                        snippetList.Add(nodeEvent.Snippet.ToString());
+
+                        var parametersEv = RouteSetLoader.GetParams(nodeEvent);
+                        foreach (var param in parametersEv)
+                        {
+                            hashes["NodeParameters"].Add(param.ToString());
+                        }
+                    }
+                }
+            }
+
+            //Program.WriteHashes(filePath, snippetList, "snippet");
+        }//ReadHashes
     }
 }

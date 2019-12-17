@@ -2,21 +2,111 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using PowerCutAreaGimmickLocatorSet = FoxLib.Tpp.GimmickLocatorSet.GimmickLocatorSet.PowerCutAreaGimmickLocatorSet;
-using NamedGimmickLocatorSet = FoxLib.Tpp.GimmickLocatorSet.GimmickLocatorSet.NamedGimmickLocatorSet;
-using ScaledGimmickLocatorSet = FoxLib.Tpp.GimmickLocatorSet.GimmickLocatorSet.ScaledGimmickLocatorSet;
-using Vector4 = FoxLib.Core.Vector4;
-using FoxLibLoaders;
 using Newtonsoft.Json;
-using FoxLib;
+using FoxLibLoaders;
+using FoxLibDumper.OtherLoaders;
+using System.Text.RegularExpressions;
 
 namespace FoxLibDumper
 {
     class Program
     {
+        static List<string> fileTypes = new List<string> {
+            "fcnp",
+            "fmdl",
+            "frld",
+            "frt",
+            "fv2",//tex foxlib implementation can't handle all fv2s, have yet to decipher implementation in fv2twool 
+            "lba",
+        };
+
+        class RunSettings
+        {
+            public bool outputToFilePath = false; //tex for <somepath><some file> write hashes to <somepath><somefile>_<hashType>Hashes.txt
+            public string outputToHashTypeFoldersPath = @"D:\GitHub\mgsv-lookup-strings";
+
+            public string hashTypeDefinitionsPath = @"D:\GitHub\mgsv-lookup-strings";
+            public string filesToDumpPath = @"E:\GameData\TPP\assetpath";
+
+            public string gameId = "TPP";
+        }
+
         static void Main(string[] args)
         {
-            List<string> files = BuildFileList(args);
+            if (args.Length == 0)
+            {
+                //ShowUsageInfo();
+
+                RunSettings defaultConfig = new RunSettings();
+                JsonSerializerSettings serializeSettings = new JsonSerializerSettings();
+                serializeSettings.Formatting = Formatting.Indented;
+                string jsonStringOut = JsonConvert.SerializeObject(defaultConfig, serializeSettings);
+                string jsonOutPath = Directory.GetCurrentDirectory() + "/default-config.json";
+                jsonOutPath = Regex.Replace(jsonOutPath, @"\\", "/");
+                File.WriteAllText(jsonOutPath, jsonStringOut);
+                Console.WriteLine();
+                Console.WriteLine($"Writing default run config to {jsonOutPath}");
+                return;
+            }
+
+
+            var runSettings = new RunSettings();
+
+
+            string configPath = GetPath(args[0]);
+            if (configPath == null)
+            {
+                Console.WriteLine("ERROR: invalid path " + args[0]);
+                return;
+            }
+            if (configPath.Contains(".json"))
+            {
+                Console.WriteLine("Using run settings " + configPath);
+                string jsonString = File.ReadAllText(configPath);
+                runSettings = JsonConvert.DeserializeObject<RunSettings>(jsonString);
+            }
+
+
+            if (!Directory.Exists(runSettings.hashTypeDefinitionsPath))
+            {
+                Console.WriteLine("ERROR: Could not find path " + runSettings.hashTypeDefinitionsPath);
+                return;
+            }
+
+            if (runSettings.outputToHashTypeFoldersPath != null && !Directory.Exists(runSettings.outputToHashTypeFoldersPath))
+            {
+                Console.WriteLine("ERROR: Could not find path " + runSettings.outputToHashTypeFoldersPath);
+                return;
+            }
+
+            // REF: example hash type json
+            /*{
+                "BoneName": "StrCode64",
+                "TexturePath": "PathCode64",
+                "ShaderName": "StrCode64",
+                "MaterialName": "StrCode64",
+                "TextureName": "StrCode64",
+                "ParameterName": "StrCode64",
+                "MeshGroup": "StrCode64",
+                "MeshName": "StrCode64",
+            }*/
+            Dictionary<string, Dictionary<string, string>> fileTypeHashTypes = new Dictionary<string, Dictionary<string, string>>();
+            foreach (string fileType in fileTypes)
+            {
+                string jsonPath = $"{runSettings.hashTypeDefinitionsPath}\\{fileType}\\{fileType}_hash_types.json";
+                if (!File.Exists(jsonPath))
+                {
+                    Console.WriteLine("WARNING: could not find " + jsonPath);
+                } else
+                {
+                    string jsonString = File.ReadAllText(jsonPath);
+                    var hashTypes = JsonConvert.DeserializeObject<Dictionary<string, string>>(jsonString);
+
+                    fileTypeHashTypes.Add(fileType, hashTypes);
+                }
+            }
+
+            List<string> files = BuildFileList(runSettings.filesToDumpPath);
 
             if (files.Count == 0)
             {
@@ -28,41 +118,115 @@ namespace FoxLibDumper
 
             foreach (var filePath in files)
             {
-                string fileExtension = Path.GetExtension(filePath).ToLower();
-                switch (fileExtension)
+                string fileType = Path.GetExtension(filePath).ToLower();
+                fileType = fileType.TrimStart('.');
+
+                bool canDumpType = false;
+                foreach (string checkFileType in fileTypes)
                 {
-                    case ".lba":
-                        ReadLbaAndWriteHashes(filePath, ref failed);
+                    if (checkFileType == fileType)
+                    {
+                        canDumpType = true;
                         break;
-                    case ".frt":
-                        ReadFrtAndWriteHashes(filePath, ref failed);
+                    }
+                }
+
+                if (!canDumpType)
+                {
+                    continue;
+                }
+
+                Console.WriteLine(filePath);
+
+                var hashTypes = fileTypeHashTypes[fileType];
+                var hashes = new Dictionary<string, HashSet<string>>();
+                foreach (var entry in hashTypes)
+                {
+                    hashes.Add(entry.Key, new HashSet<string>());
+                }
+
+                switch (fileType)
+                {
+                    case "lba":
+                        GimmickLocatorSetLoader.ReadHashes(filePath, ref hashes, ref failed);
                         break;
-                    case ".frld":
-                        ReadFrldAndWriteHashes(filePath, ref failed);
+                    case "fcnp":
+                        FcnpLoader.ReadHashes(filePath, ref hashes, ref failed);
                         break;
-                    case ".fv2":
-                        ReadFv2AndWriteHashes(filePath, ref failed);
+                    case "fmdl":
+                        FmdlLoader.ReadHashes(filePath, ref hashes, ref failed);
+                        break;
+                    case "frld":
+                        FrldLoader.ReadHashes(filePath, ref hashes, ref failed);
+                        break;
+                    case "frt":
+                        RouteSetLoader.ReadHashes(filePath, ref hashes, ref failed);
+                        break;
+                    case "fv2":
+                        FormVariationLoader.ReadHashes(filePath, ref hashes, ref failed);
                         break;
                     default:
                         break;
                 }
-            }
+
+                //tex write the categorized hashes we collectted from the file
+                foreach (var entry in hashes)
+                {
+                    var hashName = entry.Key;
+                    var hashList = entry.Value.ToList();
+                    if (hashList.Count() != 0)
+                    {
+                        hashList.Sort();
+
+                        string fileName = Path.GetFileName(filePath);
+                        string fileDirectory = Path.GetDirectoryName(filePath);
+
+                        if (runSettings.outputToFilePath)
+                        {
+                            string outputPath = Path.Combine(fileDirectory, $"{fileName}_{hashName}Hashes.txt");
+                            File.WriteAllLines(outputPath, hashList);
+                        }
+
+                        if (runSettings.outputToHashTypeFoldersPath != null)
+                        {
+                            string assetsPath = fileName;
+                            int isAssetsPath = filePath.IndexOf("Assets");
+                            if (isAssetsPath != -1)
+                            {
+                                assetsPath = filePath.Substring(isAssetsPath);
+                            }
+                            string gameId = "";
+                            if (runSettings.gameId != null && runSettings.gameId != "")
+                            {
+                                gameId = runSettings.gameId + "\\";
+                            }
+                            string outputPath = $"{runSettings.outputToHashTypeFoldersPath}\\{fileType}\\Hashes\\{gameId}{hashName}\\{assetsPath}_{hashName}Hashes.txt";
+                            if (!Directory.Exists(Path.GetDirectoryName(outputPath)))
+                            {
+                                Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
+                            }
+                            File.WriteAllLines(outputPath, hashList);
+                        }
+                    }//if hashList.Count
+                }//foreach hashes
+            }//foreach files
 
             if (failed.Count > 0)
             {
-                string outPath = Path.Combine(Path.GetDirectoryName(args[0]), "DumpFailedFiles.txt");
+                Console.WriteLine(failed.Count + " files failed to read.");
+                string outPath = Path.Combine(Path.GetDirectoryName(runSettings.filesToDumpPath), "DumpFailedFiles.txt");
                 Console.WriteLine("Writing " + outPath);
                 File.WriteAllLines(outPath, failed);
             }
 
             Console.WriteLine("Done.");
             Console.ReadLine();
-        }
+        }//Main
 
-        private static List<string> BuildFileList(string[] args)
+        private static List<string> BuildFileList(string[] paths)
         {
             List<string> files = new List<string>();
-            foreach (var filePath in args)
+            foreach (var filePath in paths)
             {
                 if (File.Exists(filePath))
                 {
@@ -81,216 +245,28 @@ namespace FoxLibDumper
             }
 
             return files;
-        }
+        }//BuildFileList
 
-        private static void ReadFrldAndWriteHashes(string filePath, ref List<string> failed)
+        private static List<string> BuildFileList(string filePath)
         {
-            Console.WriteLine(filePath);
-            uint[] ids = FrldLoader.Read(filePath);
-            if (ids == null)
+            List<string> files = new List<string>();
+            if (File.Exists(filePath))
             {
-                Console.WriteLine($"Could not read {filePath}");
-                failed.Add(filePath);
-                return;
-            }
-
-            DumpToJson(filePath, ids);
-
-            var hashes = new List<string>();
-            foreach (uint hash in ids)
+                files.Add(filePath);
+            } else
             {
-                hashes.Add(hash.ToString());
-            }
-            if (hashes.Count > 0)
-            {
-                hashes.Sort();
-                File.WriteAllLines(filePath + "_idHashes.txt", hashes);
-            }
-        }
-
-
-        private static void ReadFv2AndWriteHashes(string filePath, ref List<string> failed)
-        {
-            Console.WriteLine(filePath);
-            FormVariation.FormVariation formVariation  = FormVariationLoader.Read(filePath);
-            if (formVariation == null)
-            {
-                Console.WriteLine($"Could not read {filePath}");
-                failed.Add(filePath);
-                return;
-            }
-
-            DumpToJson(filePath, formVariation);
-
-            var s32Hashes = new HashSet<string>();
-            var p64Hashes = new HashSet<string>();
-            foreach (var hash in formVariation.HiddenMeshGroups)
-            {
-                s32Hashes.Add(hash.ToString());
-            }
-            foreach (var hash in formVariation.ShownMeshGroups)
-            {
-                s32Hashes.Add(hash.ToString());
-            }
-            foreach (var textureSwap in formVariation.TextureSwaps)
-            {
-                s32Hashes.Add(textureSwap.MaterialInstanceHash.ToString());
-                s32Hashes.Add(textureSwap.TextureTypeHash.ToString());
-                p64Hashes.Add(textureSwap.TextureFileHash.ToString());
-            }
-            foreach (var boneAttachment in formVariation.BoneAttachments)
-            {
-                p64Hashes.Add(boneAttachment.ModelFileHash.ToString());
-                p64Hashes.Add(boneAttachment.FrdvFileHash.ToString());
-                p64Hashes.Add(boneAttachment.SimFileHash.ToString());
-            }
-            foreach (var cnpAttachment in formVariation.CNPAttachments)
-            {
-                p64Hashes.Add(cnpAttachment.ModelFileHash.ToString());
-                p64Hashes.Add(cnpAttachment.FrdvFileHash.ToString());
-                p64Hashes.Add(cnpAttachment.SimFileHash.ToString());
-            }
-            if (s32Hashes.Count > 0)
-            {
-                var list = s32Hashes.ToList();
-                list.Sort();
-                File.WriteAllLines(filePath + "_StrCode32Hashes.txt", list);
-            }
-            if (p64Hashes.Count > 0)
-            {
-                var list = p64Hashes.ToList();
-                list.Sort();
-                File.WriteAllLines(filePath + "_PathFileNameCode64Hashes.txt", list);
-            }
-        }
-
-        /// <summary>
-        /// Read a .lba file and write the hashes of its locators to files.
-        /// </summary>
-        /// <param name="filePath">Path of the file to read.</param>
-        private static void ReadLbaAndWriteHashes(string filePath, ref List<string> failed)
-        {
-            Console.WriteLine(filePath);
-
-            var locatorSet = GimmickLocatorSetLoader.ReadLocatorSet(filePath);
-            if (locatorSet == null)
-            {
-                Console.WriteLine($"Could not read {filePath}");
-                failed.Add(filePath);
-                return;
-            }
-
-            DumpToJson(filePath, locatorSet);
-
-            IEnumerable<Vector4> positions = null;
-
-            var dataSets = new HashSet<string>();
-            var locatorNames = new HashSet<string>();
-
-            // The locatorSet could be one of three different types.
-            // Determine the type and cast it to get access to type-specific fields.
-            if (locatorSet.IsPowerCutAreaGimmickLocatorSet)
-            {
-                var pca = locatorSet as PowerCutAreaGimmickLocatorSet;
-                positions = from locator in pca.Locators
-                            select locator.Position;
-            } else if (locatorSet.IsNamedGimmickLocatorSet)
-            {
-                var named = locatorSet as NamedGimmickLocatorSet;
-                positions = from locator in named.Locators
-                            select locator.Position;
-
-                foreach (var locator in named.Locators)
+                if (Directory.Exists(filePath))
                 {
-                    dataSets.Add(locator.DataSetName.ToString());
-                    locatorNames.Add(locator.LocatorName.ToString());
-                }
-
-            } else if (locatorSet.IsScaledGimmickLocatorSet)
-            {
-                var named = locatorSet as ScaledGimmickLocatorSet;
-                positions = from locator in named.Locators
-                            select locator.Position;
-
-                foreach (var locator in named.Locators)
-                {
-                    dataSets.Add(locator.DataSetName.ToString());
-                    locatorNames.Add(locator.LocatorName.ToString());
-                }
-            }
-            foreach (var position in positions)
-            {
-                //tex off Console.WriteLine(position);
-            }
-
-            WriteHashes(filePath, locatorNames, "locatorName");
-            WriteHashes(filePath, dataSets, "dataSet");
-        }
-
-        public static void ReadFrtAndWriteHashes(string filePath, ref List<string> failed)
-        {
-            Console.WriteLine(filePath);
-
-            string fileName = Path.GetFileName(filePath);
-            string outPath;
-
-            var routeSet = RouteSetLoader.ReadRouteSet(filePath);
-            if (routeSet == null)
-            {
-                Console.WriteLine($"Could not read {filePath}");
-                failed.Add(filePath);
-                return;
-            }
-
-            DumpToJson(filePath, routeSet);
-
-            var routeHashes = new List<string>();
-            var edgeEventTypeHashes = new HashSet<string>();
-            var nodeEventTypeHashes = new HashSet<string>();
-            //tex just a big ole bag of paramters with no context to try and see if any are hashes (like SendMessage 1st param).
-            var parameterHashes = new HashSet<string>();
-            var snippetList = new HashSet<string>();
-
-
-            foreach (var route in routeSet.Routes)
-            {
-   
-                routeHashes.Add(route.Name.ToString());
-                foreach (var node in route.Nodes)
-                {
-                    var eventTypeHash = node.EdgeEvent.EventType;
-                    edgeEventTypeHashes.Add(eventTypeHash.ToString());
-
-                    snippetList.Add(node.EdgeEvent.Snippet.ToString());
-
-                    var parametersEdge = RouteSetLoader.GetParams(node.EdgeEvent);
-                    foreach (var param in parametersEdge)
+                    var dirFiles = Directory.GetFiles(filePath, "*.*", SearchOption.AllDirectories);
+                    foreach (var file in dirFiles)
                     {
-                        parameterHashes.Add(param.ToString());
-                    }
-
-                    foreach (var nodeEvent in node.Events)
-                    {
-                        eventTypeHash = nodeEvent.EventType;
-                        nodeEventTypeHashes.Add(eventTypeHash.ToString());
-
-                        snippetList.Add(nodeEvent.Snippet.ToString());
-
-                        var parametersEv = RouteSetLoader.GetParams(nodeEvent);
-                        foreach (var param in parametersEv)
-                        {
-                            parameterHashes.Add(param.ToString());
-                        }
+                        files.Add(file);
                     }
                 }
             }
 
-            Program.WriteList(filePath, routeHashes, "routeName");
-            Program.WriteHashes(filePath, edgeEventTypeHashes, "edgeEventType");
-            Program.WriteHashes(filePath, nodeEventTypeHashes, "nodeEventType");
-            Program.WriteHashes(filePath, parameterHashes, "parameter");
-            Program.WriteHashes(filePath, snippetList, "snippet");
-        }
+            return files;
+        }//BuildFileList
 
         private static void DumpToJson(string filePath, object dumpObject)
         {
@@ -330,5 +306,21 @@ namespace FoxLibDumper
                 }
             }
         }
-    }
+
+        private static string GetPath(string path)
+        {
+            if (Directory.Exists(path) || File.Exists(path))
+            {
+                if (!Path.IsPathRooted(path))
+                {
+                    path = Path.GetFullPath(path);
+                }
+            } else
+            {
+                path = null;
+            }
+
+            return path;
+        }//GetPath
+    }//Program
 }

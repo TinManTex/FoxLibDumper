@@ -1,6 +1,7 @@
 ﻿namespace FoxLibLoaders
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
 
     public static class FrldLoader
@@ -25,5 +26,23 @@
         {
             reader.BaseStream.Position += numberOfBytes;
         }
+
+        public static void ReadHashes(string filePath, ref Dictionary<string, HashSet<string>> hashes, ref List<string> failed)
+        {
+            uint[] ids = FrldLoader.Read(filePath);
+            if (ids == null)
+            {
+                Console.WriteLine($"Could not read {filePath}");
+                failed.Add(filePath);
+                return;
+            }
+
+            //DumpToJson(filePath, ids);
+
+            foreach (uint hash in ids)
+            {
+                hashes["RailName"].Add(hash.ToString());
+            }
+        }//ReadHashes
     }
 }

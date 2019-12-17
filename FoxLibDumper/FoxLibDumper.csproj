@@ -41,12 +41,18 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>bin\Debug\FoxLib.dll</HintPath>
     </Reference>
-    <Reference Include="FSharp.Core, Version=4.4.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
+    <Reference Include="FSharp.Core, Version=4.5.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\FSharp.Core.4.5.0\lib\net45\FSharp.Core.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.11.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Half, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>Dll\System.Half.dll</HintPath>
+    </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -59,6 +65,15 @@
     <Compile Include="FoxLibLoaders\FormVariationLoader.cs" />
     <Compile Include="FoxLibLoaders\GimmickLocatorSetLoader.cs" />
     <Compile Include="Hashing.cs" />
+    <Compile Include="OtherLoaders\ExtensionMethods.cs" />
+    <Compile Include="OtherLoaders\Fcnp.cs" />
+    <Compile Include="OtherLoaders\FcnpLoader.cs" />
+    <Compile Include="OtherLoaders\Fmdl.cs" />
+    <Compile Include="OtherLoaders\FmdlLoader.cs" />
+    <Compile Include="OtherLoaders\Vector2Half.cs" />
+    <Compile Include="OtherLoaders\Vector3.cs" />
+    <Compile Include="OtherLoaders\Vector4.cs" />
+    <Compile Include="OtherLoaders\Vector4Half.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="FoxLibLoaders\RouteSetLoader.cs" />
@@ -66,6 +81,9 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Util\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
